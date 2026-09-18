@@ -1,0 +1,16 @@
+{
+  "name": "prime-share-hf",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "prime-share-hf": "src/cli.mjs"
+  },
+  "scripts": {
+    "test": "node --test test/*.test.mjs",
+    "check": "node --check src/exporter.mjs && node --check src/cli.mjs"
+  },
+  "dependencies": {
+    "@huggingface/hub": "^2.17.2"
+  }
+}
