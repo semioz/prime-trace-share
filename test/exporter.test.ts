@@ -14,21 +14,30 @@ test("collectPrimeTraces keeps project sessions and produces safe Prime dataset 
 
   const inside = [
     { type: "session", version: 3, id: "inside", timestamp: "2026-01-01T00:00:00.000Z", cwd: path.join(project, "packages"), parentSession: "/private/session.jsonl" },
+    { type: "custom_message", customType: "harness_digest", content: "personal session context" },
     { type: "message", message: { role: "user", content: "Check token secret-token" } },
-    { type: "message", message: { role: "assistant", content: [{ type: "thinking", thinking: "private" }, { type: "toolCall", name: "ipython", arguments: { code: "await rlm.spawn('review', name='reviewer')\nawait bash('npm test')", "secret-token": "value" } }, { type: "image", data: "x".repeat(300), mimeType: "image/png" }] } },
+    { type: "message", message: { role: "assistant", content: [{ type: "thinking", thinking: "private" }, { type: "toolCall", name: "ipython", arguments: { code: "from pathlib import Path\nPath('/Users/private/secret').read_text()\nPath('/tmp/private directory/secret').read_text()\nawait bash('cat /private/var/db')\nurl = 'https://example.test/?target=/tmp/a'\nlocal_uri = 'file:///Users/private/.ssh/id_ed25519'\ncdn = '//cdn.example/a'\nawait rlm.spawn('review', name='reviewer')\nawait bash('npm test')", "secret-token": "value" } }, { type: "image", data: "x".repeat(300), mimeType: "image/png" }] } },
   ];
   fs.writeFileSync(path.join(sessions, "secret-token.jsonl"), `${inside.map((entry) => JSON.stringify(entry)).join("\n")}\n`);
   fs.writeFileSync(path.join(sessions, "outside.jsonl"), `${JSON.stringify({ type: "session", cwd: path.join(root, "private") })}\n`);
+  fs.writeFileSync(path.join(sessions, "empty.jsonl"), `${JSON.stringify({ type: "session", cwd: project })}\n`);
 
   try {
     const traces = collectPrimeTraces({ cwd: project, sessionDir: sessions, secrets: ["secret-token"] });
     assert.equal(traces.length, 1);
     assert.equal(traces[0].row.harness, "prime-agent");
     assert.equal(traces[0].row.prompt, "Check token [REDACTED]");
-    assert.deepEqual(traces[0].row.metadata.special_calls, { "rlm.spawn": 1, bash: 1 });
+    assert.deepEqual(traces[0].row.metadata.special_calls, { "rlm.spawn": 1, bash: 2 });
     assert.equal(JSON.stringify(traces[0].trace).includes("private"), false);
     assert.equal(JSON.stringify(traces[0].trace).includes(project), false);
     assert.equal(JSON.stringify(traces[0].trace).includes("secret-token"), false);
+    assert.equal(JSON.stringify(traces[0].trace).includes("/Users/private"), false);
+    assert.equal(JSON.stringify(traces[0].trace).includes("/tmp/private directory"), false);
+    assert.equal(JSON.stringify(traces[0].trace).includes("/private/var/db"), false);
+    assert.equal(JSON.stringify(traces[0].trace).includes("file:///Users/private/.ssh/id_ed25519"), false);
+    assert.equal(JSON.stringify(traces[0].trace).includes("https://example.test/?target=/tmp/a"), true);
+    assert.equal(JSON.stringify(traces[0].trace).includes("//cdn.example/a"), true);
+    assert.equal(traces[0].trace.some((entry) => entry.type === "custom_message"), false);
     assert.equal(traces[0].file.includes("secret-token"), false);
     assert.equal(JSON.stringify(traces[0].row).includes("secret-token"), false);
   } finally {

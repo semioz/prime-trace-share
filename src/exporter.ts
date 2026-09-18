@@ -33,8 +33,11 @@ export function collectPrimeTraces({ cwd, sessionDir, secrets = [] }: CollectOpt
       const trace = parseTrace(path.join(sessionDir, file));
       const header = trace[0];
       if (!header || header.type !== "session" || typeof header.cwd !== "string" || !isWithin(root, header.cwd)) return [];
+      if (!trace.some((entry) => entry.type === "message" && isRecord(entry.message) && entry.message.role === "assistant")) return [];
 
-      const redacted = trace.map((entry) => redact(entry, secrets) as JsonObject);
+      const redacted = trace
+        .filter((entry) => entry.type !== "custom" && entry.type !== "custom_message")
+        .map((entry) => redact(entry, secrets) as JsonObject);
       const safeFile = `trace-${crypto.createHash("sha256").update(file).update(JSON.stringify(redacted)).digest("hex").slice(0, 16)}.jsonl`;
       return [{ file: safeFile, trace: redacted, row: datasetRow(safeFile, redacted) }];
     });
@@ -63,7 +66,18 @@ function isWithin(root: string, candidate: string): boolean {
 }
 
 function redact(value: Json, secrets: string[]): Json {
-  if (typeof value === "string") return secrets.reduce((text, secret) => secret ? text.replaceAll(secret, "[REDACTED]") : text, value);
+  if (typeof value === "string") {
+    const withoutFileUris = value
+      .replace(/(['"`])file:\/\/\/(?:\\.|(?!\1)[^\\\r\n])*\1/g, "$1file://[LOCAL_PATH]$1")
+      .replace(/file:\/\/\/(?:\\.|[^\s'"`<>(){}\[\],;])+/g, "file://[LOCAL_PATH]");
+    const urls: string[] = [];
+    const withoutUrls = withoutFileUris.replace(/(?:https?:)?\/\/[^\s'"`<>(){}\[\],;]+/g, (url) => `\0URL${urls.push(url) - 1}\0`);
+    const withoutLocalPaths = withoutUrls
+      .replace(/(['"`])\/(?:\\.|(?!\1)[^\\\r\n])*\1/g, "$1[LOCAL_PATH]$1")
+      .replace(/(^|[\s(=])\/(?:\\.|[^\s'"`<>(){}\[\],;])+/gm, "$1[LOCAL_PATH]")
+      .replace(/\0URL(\d+)\0/g, (_, index) => urls[Number(index)]);
+    return secrets.reduce((text, secret) => secret ? text.replaceAll(secret, "[REDACTED]") : text, withoutLocalPaths);
+  }
   if (Array.isArray(value)) return value
     .filter((item) => !(isRecord(item) && (item.type === "thinking" || item.type === "image")))
     .map((item) => redact(item, secrets));
