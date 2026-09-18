@@ -3,7 +3,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { collectPrimeTraces } from "../src/exporter.mjs";
+import { collectPrimeTraces } from "../src/exporter.ts";
 
 test("collectPrimeTraces keeps project sessions and produces safe Prime dataset rows", () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "prime-share-hf-"));
@@ -17,7 +17,7 @@ test("collectPrimeTraces keeps project sessions and produces safe Prime dataset 
     { type: "message", message: { role: "user", content: "Check token secret-token" } },
     { type: "message", message: { role: "assistant", content: [{ type: "thinking", thinking: "private" }, { type: "toolCall", name: "ipython", arguments: { code: "await rlm.spawn('review', name='reviewer')\nawait bash('npm test')", "secret-token": "value" } }, { type: "image", data: "x".repeat(300), mimeType: "image/png" }] } },
   ];
-  fs.writeFileSync(path.join(sessions, "secret-token.jsonl"), `${inside.map(JSON.stringify).join("\n")}\n`);
+  fs.writeFileSync(path.join(sessions, "secret-token.jsonl"), `${inside.map((entry) => JSON.stringify(entry)).join("\n")}\n`);
   fs.writeFileSync(path.join(sessions, "outside.jsonl"), `${JSON.stringify({ type: "session", cwd: path.join(root, "private") })}\n`);
 
   try {

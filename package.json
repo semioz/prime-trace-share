@@ -4,13 +4,17 @@
   "private": true,
   "type": "module",
   "bin": {
-    "prime-share-hf": "src/cli.mjs"
+    "prime-share-hf": "src/cli.ts"
   },
   "scripts": {
-    "test": "node --test test/*.test.mjs",
-    "check": "node --check src/exporter.mjs && node --check src/cli.mjs"
+    "test": "node --experimental-strip-types --test test/*.test.ts",
+    "check": "tsc --noEmit && node --experimental-strip-types src/cli.ts --help"
   },
   "dependencies": {
     "@huggingface/hub": "^2.17.2"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.1",
+    "typescript": "^7.0.2"
   }
 }

@@ -4,19 +4,24 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { createRepo, uploadFiles } from "@huggingface/hub";
-import { collectPrimeTraces, datasetFiles } from "./exporter.mjs";
+import { collectPrimeTraces, datasetFiles } from "./exporter.ts";
+
+type Options = {
+  cwd: string;
+  sessionDir: string;
+  repo: string;
+  secrets: string[];
+  dryRun: boolean;
+  help: boolean;
+};
 
 const options = parseArgs(process.argv.slice(2));
 if (options.help || !options.repo) {
-  console.log("Usage: prime-share-hf --repo <user/dataset> [--cwd <project>] [--session-dir <dir>] [--secret <value>] [--dry-run]");
+  console.log("Usage: prime-trace-share --repo <user/dataset> [--cwd <project>] [--session-dir <dir>] [--secret <value>] [--dry-run]");
   process.exit(options.help ? 0 : 1);
 }
 
-const traces = collectPrimeTraces({
-  cwd: options.cwd,
-  sessionDir: options.sessionDir,
-  secrets: options.secrets,
-});
+const traces = collectPrimeTraces({ cwd: options.cwd, sessionDir: options.sessionDir, secrets: options.secrets });
 const files = datasetFiles(traces);
 files.set("README.md", datasetCard(options.repo));
 
@@ -40,8 +45,8 @@ await uploadFiles({
   files: [...files].map(([file, content]) => ({ path: file, content: new Blob([content]) })),
 });
 
-function parseArgs(args) {
-  const result = {
+function parseArgs(args: string[]): Options {
+  const result: Options = {
     cwd: process.cwd(),
     sessionDir: path.join(os.homedir(), ".prime", "agent", "sessions"),
     repo: "",
@@ -63,12 +68,12 @@ function parseArgs(args) {
   return result;
 }
 
-function required(args, index, option) {
+function required(args: string[], index: number, option: string): string {
   if (!args[index]) throw new Error(`Missing value for ${option}`);
   return args[index];
 }
 
-function datasetCard(repo) {
+function datasetCard(repo: string): string {
   return `---
 pretty_name: Prime Agent traces
 tags:
