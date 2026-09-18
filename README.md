@@ -33,7 +33,3 @@ Prime Agent stores sessions in `~/.prime/agent/sessions/` by default. Run Prime 
 cd /path/to/prime-agent
 prime-agent "Review the session format and run its focused tests."
 ```
-
-## V1 limitation
-
-This first version performs literal redaction and blocks every TruffleHog finding. Before any public upload, still inspect the dry-run output and pass every known credential or sensitive literal with `--secret`. LLM safety review is not included yet.
