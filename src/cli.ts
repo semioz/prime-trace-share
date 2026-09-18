@@ -5,6 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import { createRepo, uploadFiles } from "@huggingface/hub";
 import { collectPrimeTraces, datasetFiles } from "./exporter.ts";
+import { truffleHogFindings } from "./trufflehog.ts";
 
 type Options = {
   cwd: string;
@@ -27,23 +28,33 @@ files.set("README.md", datasetCard(options.repo));
 
 console.log(`Collected ${traces.length} Prime Agent session(s).`);
 console.log(`Prepared ${files.size} dataset file(s).`);
-if (options.dryRun) process.exit(0);
 
-const accessToken = process.env.HF_TOKEN ?? process.env.HUGGINGFACE_TOKEN;
-if (!accessToken) throw new Error("Set HF_TOKEN or HUGGINGFACE_TOKEN with write access to the dataset repository.");
-
+const staging = fs.mkdtempSync(path.join(os.tmpdir(), "prime-trace-share-"));
 try {
-  await createRepo({ repo: { type: "dataset", name: options.repo }, visibility: "public", accessToken });
-} catch (error) {
-  if (!String(error).includes("409")) throw error;
-}
+  for (const [file, content] of files) fs.writeFileSync(path.join(staging, file), content);
+  const findings = await truffleHogFindings(staging);
+  if (findings.length > 0) throw new Error(`TruffleHog blocked upload: ${findings.length} finding(s).`);
 
-await uploadFiles({
-  repo: { type: "dataset", name: options.repo },
-  accessToken,
-  commitTitle: `Upload ${traces.length} Prime Agent trace(s)`,
-  files: [...files].map(([file, content]) => ({ path: file, content: new Blob([content]) })),
-});
+  if (!options.dryRun) {
+    const accessToken = process.env.HF_TOKEN ?? process.env.HUGGINGFACE_TOKEN;
+    if (!accessToken) throw new Error("Set HF_TOKEN or HUGGINGFACE_TOKEN with write access to the dataset repository.");
+
+    try {
+      await createRepo({ repo: { type: "dataset", name: options.repo }, visibility: "public", accessToken });
+    } catch (error) {
+      if (!String(error).includes("409")) throw error;
+    }
+
+    await uploadFiles({
+      repo: { type: "dataset", name: options.repo },
+      accessToken,
+      commitTitle: `Upload ${traces.length} Prime Agent trace(s)`,
+      files: [...files].map(([file, content]) => ({ path: file, content: new Blob([content]) })),
+    });
+  }
+} finally {
+  fs.rmSync(staging, { recursive: true, force: true });
+}
 
 function parseArgs(args: string[]): Options {
   const result: Options = {

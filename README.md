@@ -16,6 +16,7 @@ Thinking blocks, embedded images, session parent paths, output paths, project pa
 ```bash
 cd /path/to/prime-trace-share
 npm install
+brew install trufflehog
 
 node src/cli.mjs \
   --cwd /path/to/prime-agent \
@@ -35,4 +36,4 @@ prime-agent "Review the session format and run its focused tests."
 
 ## V1 limitation
 
-This first version performs literal redaction only. Before any public upload, inspect the dry-run output and pass every known credential or sensitive literal with `--secret`. TruffleHog and LLM safety review are intentionally not included yet.
+This first version performs literal redaction and blocks every TruffleHog finding. Before any public upload, still inspect the dry-run output and pass every known credential or sensitive literal with `--secret`. LLM safety review is not included yet.
