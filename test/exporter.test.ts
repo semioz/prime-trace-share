@@ -17,6 +17,7 @@ test("collectPrimeTraces keeps project sessions and produces safe Prime dataset 
     { type: "custom_message", customType: "harness_digest", content: "personal session context" },
     { type: "message", message: { role: "user", content: "Check token secret-token" } },
     { type: "message", message: { role: "assistant", content: [{ type: "thinking", thinking: "private" }, { type: "toolCall", name: "ipython", arguments: { code: "from pathlib import Path\nPath('/Users/private/secret').read_text()\nPath('/tmp/private directory/secret').read_text()\nawait bash('cat /private/var/db')\nurl = 'https://example.test/?target=/tmp/a'\nlocal_uri = 'file:///Users/private/.ssh/id_ed25519'\ncdn = '//cdn.example/a'\nawait rlm.spawn('review', name='reviewer')\nawait bash('npm test')", "secret-token": "value" } }, { type: "image", data: "x".repeat(300), mimeType: "image/png" }] } },
+    { type: "message", message: { role: "toolResult", content: [{ type: "text", text: "Entries use `id`/`parentId` links." }] } },
   ];
   fs.writeFileSync(path.join(sessions, "secret-token.jsonl"), `${inside.map((entry) => JSON.stringify(entry)).join("\n")}\n`);
   fs.writeFileSync(path.join(sessions, "outside.jsonl"), `${JSON.stringify({ type: "session", cwd: path.join(root, "private") })}\n`);
@@ -37,6 +38,7 @@ test("collectPrimeTraces keeps project sessions and produces safe Prime dataset 
     assert.equal(JSON.stringify(traces[0].trace).includes("file:///Users/private/.ssh/id_ed25519"), false);
     assert.equal(JSON.stringify(traces[0].trace).includes("https://example.test/?target=/tmp/a"), true);
     assert.equal(JSON.stringify(traces[0].trace).includes("//cdn.example/a"), true);
+    assert.equal(JSON.stringify(traces[0].trace).includes("`id`/`parentId`"), true);
     assert.equal(traces[0].trace.some((entry) => entry.type === "custom_message"), false);
     assert.equal(traces[0].file.includes("secret-token"), false);
     assert.equal(JSON.stringify(traces[0].row).includes("secret-token"), false);
